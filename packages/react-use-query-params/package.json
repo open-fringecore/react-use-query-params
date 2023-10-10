@@ -1,0 +1,44 @@
+{
+    "name": "react-use-query-params",
+    "version": "1.0.0",
+    "description": "Strongly typed, routing-library agnostic react hook to use and manipulate query params",
+    "main": "dist/index.js",
+    "type": "module",
+    "scripts": {
+        "build": "tsc || exit 0",
+        "build:watch": "tsc -w --preserveWatchOutput",
+        "dev": "pnpm build:watch"
+    },
+    "keywords": [
+        "react",
+        "hook",
+        "query-string",
+        "query",
+        "parameter"
+    ],
+    "contributors": [
+        {
+            "name": "Rifat Noor",
+            "email": "rifatnoor92@gmail.com",
+            "url": "https://rifatsworks.netlify.app/"
+        },
+        {
+            "name": "Shafayet Chowdhury",
+            "email": "shafayet.shawal@gmail.com"
+        },
+        {
+            "name": "Omran Jamal",
+            "email": "omran@omranjamal.me",
+            "url": "https://omranjamal.me"
+        }
+    ],
+    "license": "MIT",
+    "devDependencies": {
+        "@types/react": ">=18.2.21",
+        "turbo": "1.10.13",
+        "typescript": "5.2.2"
+    },
+    "peerDependencies": {
+        "react": ">=13"
+    }
+}

@@ -1,0 +1,43 @@
+name: Publish `react-use-query-params` to NPM
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18.x"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Check for new version
+        uses: salsify/action-detect-and-tag-new-version@v2
+        id: detect-new-version
+        with:
+          # Do not create a tag as it is inside a monorepo. Creating a tag will
+          # cause conflicts with other packages.
+          create-tag: false
+          version-command: |
+            jq -r '.version' packages/zod-forms/package.json
+
+      - name: Publish to NPM
+        if: steps.detect-new-version.outputs.previous-version != steps.detect-new-version.outputs.current-version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packages/zod-forms/
+          echo "Publishing to NPM..."
+          sudo npm install -g pnpm
+
+          pnpm install
+          pnpm run build
+          pnpm publish --access public --no-git-checks
