@@ -283,10 +283,15 @@ export function useQueryParams<
         removeParam: removeParams,
         removeParams: removeParams,
         get allParams() {
+            const keys = new Set<string>();
+
+            urlSearchParams.forEach((_, key) => {
+                keys.add(key);
+            });
+
             const allParams: AllParams<PARAMS> = {};
 
-            for (const [key] of urlSearchParams.entries()) {
-                // this will watch all the params.
+            for (const key of keys) {
                 watch(key);
 
                 allParams[key as keyof PARAMS] = ParamValuesArray.from(
