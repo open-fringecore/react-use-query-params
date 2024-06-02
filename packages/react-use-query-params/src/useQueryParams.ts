@@ -73,13 +73,18 @@ export function useQueryParams<
         [key in keyof PARAMS]?: string[];
     }>({});
 
+    const watchingLength = useRef<number | boolean>(false);
     const pauseWatch = useRef<boolean>(false);
 
     // stores both the key and the values as an array
     // of the params that are being watched
     const watch = useCallback(
         (key: keyof PARAMS) => {
-            if (key in watching.current || pauseWatch.current) {
+            if (
+                key in watching.current ||
+                pauseWatch.current ||
+                watchingLength.current
+            ) {
                 return;
             }
 
@@ -90,16 +95,24 @@ export function useQueryParams<
 
     const clearWatch = useCallback(() => {
         watching.current = {};
+        watchingLength.current = false;
     }, [watching]);
 
     // React's officially recommended way of forcing a rerender
-    const [, rerender] = useReducer((state) => state + 1, 0);
+    const [, increment] = useReducer((state) => {
+        return state + 1;
+    }, 0);
+
+    const rerender = useCallback(() => {
+        increment();
+    }, [increment]);
 
     // Handles location changes via listener mechanism above.
     const handle = useCallback(() => {
         const currentParams = new URLSearchParams(window.location.search);
 
         let shouldRerender = false;
+        let length = 0;
 
         for (const [key, values] of Object.entries(watching.current)) {
             const currentValues = currentParams.getAll(key);
@@ -116,11 +129,19 @@ export function useQueryParams<
                     break;
                 }
             }
+
+            length += 1;
         }
+
+        shouldRerender =
+            shouldRerender ||
+            (watchingLength.current !== false &&
+                watchingLength.current !== length);
 
         if (shouldRerender) {
             clearWatch();
             rerender();
+            return;
         }
     }, [watching, clearWatch, rerender]);
 
@@ -146,6 +167,10 @@ export function useQueryParams<
                 urlSearchParams.forEach((value, key) => {
                     keys.add(key);
                 });
+
+                if (!pauseWatch.current) {
+                    watchingLength.current = keys.size;
+                }
 
                 return [...keys];
             },
@@ -178,7 +203,7 @@ export function useQueryParams<
 
                 pauseWatch.current = false;
 
-                applyQueryParams(nextURL, nextParamsObject);
+                applyQueryParams(nextURL, nextParamsObject, true);
 
                 if (replace) {
                     window.history.replaceState(null, '', nextURL);

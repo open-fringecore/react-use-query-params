@@ -1,11 +1,12 @@
-import {useQueryParams} from 'react-use-query-params';
+import useQueryParams from 'react-use-query-params';
+// import {useEffect} from 'react';
 
 function MainForm() {
     const [params, setParams] = useQueryParams<{
         tomato: string;
     }>();
 
-    console.log(Object.entries(params));
+    console.log('re-rendered', Object.keys(params));
 
     return (
         <button

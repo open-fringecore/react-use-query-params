@@ -1,8 +1,9 @@
 {
     "name": "react-use-query-params",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "description": "Strongly typed, routing-library agnostic react hook to use and manipulate query params",
     "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "type": "module",
     "scripts": {
         "build": "tsc || exit 0",
