@@ -27,89 +27,41 @@ function runListeners() {
     });
 })(window.history);
 
-// Exactly the same as Array<string> but with a custom toString
-// method that always returns the first value
-export class ParamValuesArray extends Array<string> {
-    toString() {
-        if (this.length > 0) {
-            return `${this[0]}`;
-        }
+export type TDefaultParamsObject = Record<string, any>;
 
-        return '';
-    }
-}
+export type TAllParams<PARAMS extends TDefaultParamsObject> = {
+    [key in keyof PARAMS]: string[];
+};
 
-export type DefaultParamsObject = Record<string, any>;
-
-export type AllParams<PARAMS extends DefaultParamsObject> = Partial<
-    Record<keyof PARAMS, ParamValuesArray>
->;
-
-// string or string[] with single value for properties
-// defined as just `string` string[] for properties defined as `string[]`
-export type InputParams<PARAMS extends DefaultParamsObject> = Partial<{
-    [KEY in keyof PARAMS]: PARAMS[KEY] extends string[]
-        ? string[]
-        : [string] | string;
-}>;
-
-export function appendQueryParamsToURL<PARAMS extends DefaultParamsObject>(
-    url: URL,
-    queryParams: InputParams<PARAMS>,
+export function applyQueryParams<PARAMS extends TDefaultParamsObject>(
+    target: URL | URLSearchParams,
+    queryParams: TAllParams<PARAMS>,
+    removeExtras: boolean = false,
 ) {
+    const params = target instanceof URL ? target.searchParams : target;
+
+    if (removeExtras) {
+        params.forEach((value, key) => {
+            if (!(key in queryParams)) {
+                params.delete(key);
+            }
+        });
+    }
+
     for (const [key, values] of Object.entries(queryParams)) {
         const usableValues = Array.isArray(values) ? values : [values];
-        url.searchParams.delete(key);
+        params.delete(key);
 
         for (const value of usableValues) {
-            url.searchParams.append(key, value);
+            params.append(key, value);
         }
     }
-}
 
-export function makeLocation<
-    PARAMS extends DefaultParamsObject = DefaultParamsObject,
->(url: string, queryParams: InputParams<PARAMS> = {}) {
-    const isFullURL = url.includes('http://') || url.includes('https://');
-    const isAbsolute = !isFullURL && url.startsWith('/');
-
-    const nextURL = (() => {
-        if (isFullURL) {
-            return new URL(url);
-        } else {
-            const nextURL = new URL(window.location.href);
-
-            if (isAbsolute) {
-                const [pathname, query] = url.split('?');
-
-                nextURL.pathname = pathname;
-                nextURL.search = query ?? '';
-            } else {
-                const [pathname, query] = url.split('?');
-
-                const urlSegments = nextURL.pathname.split('/');
-
-                nextURL.pathname = [
-                    ...urlSegments.slice(0, -1),
-                    pathname.trim()
-                        ? pathname
-                        : urlSegments[urlSegments.length - 1],
-                ].join('/');
-
-                nextURL.search = query ?? '';
-            }
-
-            return nextURL;
-        }
-    })();
-
-    appendQueryParamsToURL(nextURL, queryParams);
-
-    return nextURL;
+    return target;
 }
 
 export function useQueryParams<
-    PARAMS extends DefaultParamsObject = DefaultParamsObject,
+    PARAMS extends TDefaultParamsObject = TDefaultParamsObject,
 >() {
     const currentLocation = window.location.href;
 
@@ -121,16 +73,17 @@ export function useQueryParams<
         [key in keyof PARAMS]?: string[];
     }>({});
 
+    const pauseWatch = useRef<boolean>(false);
+
     // stores both the key and the values as an array
     // of the params that are being watched
     const watch = useCallback(
         (key: keyof PARAMS) => {
-            if (key in watching.current) {
+            if (key in watching.current || pauseWatch.current) {
                 return;
             }
 
-            const values = urlSearchParams.getAll(String(key));
-            watching.current[key] = values;
+            watching.current[key] = urlSearchParams.getAll(String(key));
         },
         [urlSearchParams, watching],
     );
@@ -142,6 +95,7 @@ export function useQueryParams<
     // React's officially recommended way of forcing a rerender
     const [, rerender] = useReducer((state) => state + 1, 0);
 
+    // Handles location changes via listener mechanism above.
     const handle = useCallback(() => {
         const currentParams = new URLSearchParams(window.location.search);
 
@@ -180,126 +134,65 @@ export function useQueryParams<
         };
     }, [handle]);
 
-    const getParam = <KEY extends keyof PARAMS>(
-        paramKey: PARAMS[KEY] extends string ? KEY : never,
-    ): string | undefined => {
-        watch(paramKey);
-        return urlSearchParams.get(String(paramKey)) ?? undefined;
-    };
-
-    const getParams = <KEY extends keyof PARAMS>(
-        paramKey: PARAMS[KEY] extends string[] ? KEY : never,
-    ): string[] => {
-        watch(paramKey);
-        return urlSearchParams.getAll(String(paramKey));
-    };
-
-    const hasParam = (paramKey: keyof PARAMS): boolean => {
-        watch(paramKey);
-        return urlSearchParams.has(String(paramKey));
-    };
-
-    const setLocation = (
-        url: string | URL,
-        queryParams: InputParams<PARAMS> = {},
-        replace: boolean = false,
-    ) => {
-        const nextURL =
-            url instanceof URL ? url : makeLocation(url, queryParams);
-
-        const sameOrigin =
-            nextURL.host === window.location.host &&
-            nextURL.protocol === window.location.protocol;
-
-        // History API only supports same origin URLs
-        if (sameOrigin) {
-            if (replace) {
-                window.history.replaceState(null, '', nextURL.href);
-            } else {
-                window.history.pushState(null, '', nextURL.href);
-            }
-        } else {
-            window.location.href = nextURL.href;
-        }
-    };
-
-    const mergeParams = (
-        queryParams: InputParams<PARAMS>,
-        replace: boolean = false,
-    ) => {
-        // merging is the default behaviour of the setLocation
-        setLocation(window.location.href, queryParams, replace);
-    };
-
-    const setParams = (
-        queryParams: InputParams<PARAMS>,
-        replace: boolean = false,
-    ) => {
-        const url = new URL(window.location.href);
-
-        // must clear the search params first as
-        // expected behaviour is replacement
-        url.search = '';
-
-        setLocation(url.href, queryParams, replace);
-    };
-
-    const removeParams = (
-        paramKeys:
-            | keyof PARAMS
-            | (keyof PARAMS)[]
-            | Partial<{
-                  [key in keyof PARAMS]: boolean;
-              }>,
-        replace: boolean = false,
-    ) => {
-        const url = new URL(window.location.href);
-
-        const usableKeys = Array.isArray(paramKeys)
-            ? paramKeys
-            : paramKeys instanceof Object
-            ? Object.entries(paramKeys)
-                  .filter(([, value]) => value)
-                  .map(([key]) => key)
-            : [paramKeys];
-
-        for (const key of usableKeys) {
-            url.searchParams.delete(key as string);
-        }
-
-        setLocation(url, {}, replace);
-    };
-
-    return {
-        location: currentLocation,
-        getParam: getParam,
-        getParams: getParams,
-        hasParam: hasParam,
-        setLocation: setLocation,
-        makeLocation: (url: string, queryParams: InputParams<PARAMS>) =>
-            makeLocation(url, queryParams),
-        mergeParams: mergeParams,
-        setParams: setParams,
-        removeParam: removeParams,
-        removeParams: removeParams,
-        get allParams() {
-            const keys = new Set<string>();
-
-            urlSearchParams.forEach((_, key) => {
-                keys.add(key);
-            });
-
-            const allParams: AllParams<PARAMS> = {};
-
-            for (const key of keys) {
+    const params = useMemo(() => {
+        return new Proxy({} as TAllParams<PARAMS>, {
+            get(target, key: string): string[] {
                 watch(key);
+                return urlSearchParams.getAll(key);
+            },
+            ownKeys(target) {
+                const keys = new Set<string>();
 
-                allParams[key as keyof PARAMS] = ParamValuesArray.from(
-                    urlSearchParams.getAll(String(key)),
-                );
+                urlSearchParams.forEach((value, key) => {
+                    keys.add(key);
+                });
+
+                return [...keys];
+            },
+            getOwnPropertyDescriptor(target, prop) {
+                return {configurable: true, enumerable: true, writable: false};
+            },
+            has(target, key: string) {
+                watch(key);
+                return urlSearchParams.has(key);
+            },
+        });
+    }, [urlSearchParams]);
+
+    const setParams = useCallback(
+        (
+            nextParams:
+                | TAllParams<PARAMS>
+                | ((current: TAllParams<PARAMS>) => TAllParams<PARAMS>),
+            replace: boolean = false,
+        ) => {
+            try {
+                const nextURL = new URL(window.location.href);
+
+                pauseWatch.current = true;
+
+                const nextParamsObject =
+                    nextParams instanceof Function
+                        ? nextParams(params)
+                        : nextParams;
+
+                pauseWatch.current = false;
+
+                applyQueryParams(nextURL, nextParamsObject);
+
+                if (replace) {
+                    window.history.replaceState(null, '', nextURL);
+                } else {
+                    window.history.pushState(null, '', nextURL);
+                }
+            } catch (error) {
+                console.error('Error while setting query params', error);
             }
 
-            return allParams;
+            pauseWatch.current = false;
         },
-    };
+        [params],
+    );
+
+    return [params, setParams] as const;
 }

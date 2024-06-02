@@ -1,11 +1,6 @@
 export {
     useQueryParams,
     //
-    appendQueryParamsToURL,
-    makeLocation,
-    //
-    ParamValuesArray,
-    DefaultParamsObject,
-    AllParams,
-    InputParams,
+    type TDefaultParamsObject,
+    type TAllParams,
 } from './useQueryParams';
