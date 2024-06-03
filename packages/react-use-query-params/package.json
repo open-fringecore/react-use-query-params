@@ -1,6 +1,6 @@
 {
     "name": "react-use-query-params",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "description": "Strongly typed, routing-library agnostic react hook to use and manipulate query params",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -15,8 +15,16 @@
         "hook",
         "query-string",
         "query",
-        "parameter"
+        "params",
+        "parameter",
+        "parameters",
+        "search-string",
+        "search"
     ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/open-fringecore/react-use-query-params.git"
+    },
     "contributors": [
         {
             "name": "Rifat Noor",
