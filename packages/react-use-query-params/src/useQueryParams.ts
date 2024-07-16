@@ -35,7 +35,7 @@ export type TAllParams<PARAMS extends TDefaultParamsObject> = {
 
 export function applyQueryParams<PARAMS extends TDefaultParamsObject>(
     target: URL | URLSearchParams,
-    queryParams: TAllParams<PARAMS>,
+    queryParams: Partial<TAllParams<PARAMS>>,
     removeExtras: boolean = false,
 ) {
     const params = target instanceof URL ? target.searchParams : target;
@@ -53,7 +53,7 @@ export function applyQueryParams<PARAMS extends TDefaultParamsObject>(
         params.delete(key);
 
         for (const value of usableValues) {
-            params.append(key, value);
+            params.append(key, value ?? '');
         }
     }
 
@@ -188,7 +188,9 @@ export function useQueryParams<
         (
             nextParams:
                 | TAllParams<PARAMS>
-                | ((current: TAllParams<PARAMS>) => TAllParams<PARAMS>),
+                | ((
+                      current: TAllParams<PARAMS>,
+                  ) => Partial<TAllParams<PARAMS>>),
             replace: boolean = false,
         ) => {
             try {
